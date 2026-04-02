@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ EV Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0a0e14;--surface:#111820;--surface2:#172030;--border:#1e2d40;
+    --accent:#00e5ff;--accent2:#ff6b35;--green:#39ff14;--text:#e8f4f8;
+    --muted:#5a7a8a;--danger:#ff3b5c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;
+    background:radial-gradient(ellipse at 20% 20%,rgba(0,229,255,.04) 0%,transparent 50%),
+               radial-gradient(ellipse at 80% 80%,rgba(255,107,53,.04) 0%,transparent 50%);
+    pointer-events:none;z-index:0;}
+  #root{position:relative;z-index:1;}
+
+  /* TOAST */
+  .toast-wrap{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+  .toast{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;
+    font-size:.78rem;display:flex;align-items:center;gap:10px;animation:toastIn .25s ease;pointer-events:auto;
+    box-shadow:0 8px 32px rgba(0,0,0,.4);}
+  .toast.ok{border-color:rgba(57,255,20,.3);color:var(--green);}
+  .toast.err{border-color:rgba(255,59,92,.3);color:var(--danger);}
+  .toast.info{border-color:rgba(0,229,255,.3);color:var(--accent);}
+  @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes toastOut{from{opacity:1}to{opacity:0}}
+
+  /* CONFIG */
+  .config-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);
+    display:flex;align-items:flex-start;justify-content:center;z-index:100;
+    animation:fadeIn .2s ease;padding:30px 20px;overflow-y:auto;}
+  .config-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    padding:36px;width:100%;max-width:520px;animation:slideUp .3s ease;position:relative;}
+  .config-close{position:absolute;top:16px;right:16px;background:none;border:none;
+    color:var(--muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s;}
+  .config-close:hover{color:var(--text);}
+  .config-box h2{font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;color:var(--accent);margin-bottom:8px;}
+  .config-box>p{color:var(--muted);font-size:.78rem;margin-bottom:24px;line-height:1.6;}
+  .config-section{border-top:1px solid var(--border);padding-top:20px;margin-top:20px;}
+  .config-section-title{font-family:'Syne',sans-serif;font-size:.75rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;}
+  .config-box label{display:block;font-size:.72rem;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+  .config-box input[type=text],.config-box input[type=number]{
+    width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:.82rem;
+    margin-bottom:14px;outline:none;transition:border-color .2s;}
+  .config-box input:focus{border-color:var(--accent);}
+  .hint{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.15);border-radius:8px;
+    padding:12px;font-size:.72rem;color:var(--muted);line-height:1.7;margin-bottom:16px;}
+  .hint a{color:var(--accent);text-decoration:none;}
+
+  /* STATION */
+  .station-search-row{display:flex;gap:8px;margin-bottom:10px;}
+  .station-search-row input{flex:1;margin-bottom:0!important;}
+  .station-results{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:12px;}
+  .station-results::-webkit-scrollbar{width:4px;}
+  .station-results::-webkit-scrollbar-track{background:var(--surface2);}
+  .station-results::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .station-result-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(30,45,64,.5);transition:background .15s;}
+  .station-result-item:last-child{border-bottom:none;}
+  .station-result-item:hover{background:rgba(0,229,255,.06);}
+  .station-result-item.selected{background:rgba(0,229,255,.1);border-left:2px solid var(--accent);}
+  .station-name{font-size:.8rem;color:var(--text);font-weight:500;margin-bottom:2px;}
+  .station-addr{font-size:.7rem;color:var(--muted);}
+  .station-price-badge{font-size:.7rem;color:var(--accent2);float:right;margin-top:2px;}
+  .station-selected-box{background:rgba(57,255,20,.06);border:1px solid rgba(57,255,20,.2);
+    border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;}
+  .station-selected-box .sel-name{color:var(--green);font-weight:500;margin-bottom:2px;}
+  .station-selected-box .sel-addr{color:var(--muted);font-size:.7rem;}
+
+  /* HEADER */
+  header{padding:24px 32px 0;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--accent);display:flex;align-items:center;gap:10px;}
+  .logo span{color:var(--text);opacity:.6;font-size:.9rem;font-weight:400;}
+  .header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .month-nav{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:6px 12px;font-size:.8rem;color:var(--text);}
+  .month-nav button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0 4px;transition:color .2s;}
+  .month-nav button:hover{color:var(--accent);}
+
+  /* BUTTONS */
+  .btn{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-family:'DM Mono',monospace;
+    font-size:.78rem;font-weight:500;transition:all .2s;display:flex;align-items:center;gap:6px;}
+  .btn-primary{background:var(--accent);color:var(--bg);}
+  .btn-primary:hover{background:#33eeff;transform:translateY(-1px);}
+  .btn-ghost{background:var(--surface);color:var(--muted);border:1px solid var(--border);}
+  .btn-ghost:hover{color:var(--text);border-color:var(--muted);}
+  .btn-danger{background:rgba(255,59,92,.1);color:var(--danger);border:1px solid rgba(255,59,92,.2);padding:4px 10px;font-size:.72rem;}
+  .btn-danger:hover{background:rgba(255,59,92,.2);}
+  .btn-edit{background:rgba(0,229,255,.08);color:var(--accent);border:1px solid rgba(0,229,255,.15);padding:4px 10px;font-size:.72rem;}
+  .btn-edit:hover{background:rgba(0,229,255,.15);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
+
+  /* MAIN */
+  main{padding:24px 32px;max-width:1100px;margin:0 auto;}
+
+  /* TABS */
+  .tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:4px;width:fit-content;}
+  .tab{padding:8px 20px;border-radius:8px;border:none;cursor:pointer;font-family:'DM Mono',monospace;
+    font-size:.78rem;font-weight:500;transition:all .2s;background:none;color:var(--muted);}
+  .tab.active{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+  .tab:hover:not(.active){color:var(--text);}
+
+  /* KPI */
+  .kpi-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:28px;}
+  .kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 20px;
+    position:relative;overflow:hidden;transition:border-color .2s;}
+  .kpi:hover{border-color:var(--muted);}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+  .kpi.cyan::before{background:var(--accent);}.kpi.orange::before{background:var(--accent2);}
+  .kpi.green::before{background:var(--green);}.kpi.muted::before{background:var(--muted);}
+  .kpi-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  .kpi-value{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:700;line-height:1;}
+  .kpi.cyan .kpi-value{color:var(--accent);}.kpi.orange .kpi-value{color:var(--accent2);}.kpi.green .kpi-value{color:var(--green);}
+  .kpi-sub{font-size:.68rem;color:var(--muted);margin-top:4px;}
+
+  /* COLS */
+  .cols{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start;}
+
+  /* CARD */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;}
+  .card-title{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:20px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+  .field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:.9rem;outline:none;transition:border-color .2s;}
+  .field input:focus,.field select:focus{border-color:var(--accent);}
+  .field input.error-field{border-color:var(--danger)!important;}
+  .field select option{background:var(--surface2);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .field-error{font-size:.68rem;color:var(--danger);margin-top:4px;}
+
+  /* ODO */
+  .odo-section{background:rgba(255,107,53,.04);border:1px solid rgba(255,107,53,.15);border-radius:10px;padding:16px;margin-top:16px;}
+  .odo-title{font-size:.68rem;color:var(--accent2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;}
+  .odo-saved{font-size:.72rem;color:var(--muted);margin-top:8px;line-height:1.6;}
+  .odo-saved strong{color:var(--text);}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:.8rem;}
+  thead th{padding:10px 14px;text-align:left;font-size:.65rem;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--muted);border-bottom:1px solid var(--border);}
+  tbody tr{border-bottom:1px solid rgba(30,45,64,.5);transition:background .15s;}
+  tbody tr:hover{background:rgba(255,255,255,.02);}
+  tbody td{padding:11px 14px;color:var(--text);}
+  .td-date{color:var(--muted);font-size:.75rem;}.td-eur{color:var(--accent2);font-weight:500;}
+  .td-kwh{color:var(--accent);}.td-gas{color:var(--muted);font-size:.75rem;}.td-rate{font-size:.72rem;color:var(--muted);}
+  .empty-state{text-align:center;padding:48px 20px;color:var(--muted);font-size:.8rem;line-height:2;}
+  .empty-state .icon{font-size:2.5rem;display:block;margin-bottom:12px;opacity:.4;}
+
+  /* COMPARADOR */
+  .comparador{margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;}
+  .comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;}
+  .comp-item{background:var(--surface2);border-radius:10px;padding:16px;text-align:center;}
+  .comp-item .comp-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .comp-item .comp-val{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;}
+  .comp-item.electric .comp-val{color:var(--accent);}.comp-item.gas .comp-val{color:var(--accent2);}
+  .comp-item .comp-unit{font-size:.72rem;color:var(--muted);margin-top:4px;}
+  .saving-badge{margin-top:16px;background:rgba(57,255,20,.08);border:1px solid rgba(57,255,20,.2);
+    border-radius:8px;padding:12px 16px;text-align:center;font-size:.82rem;color:var(--green);}
+
+  /* RESUMEN */
+  .resumen-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px;}
+  .resumen-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;}
+  .resumen-card-title{font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:16px;}
+  .year-select{display:flex;align-items:center;gap:10px;margin-bottom:20px;}
+  .year-select select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:6px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:.8rem;outline:none;}
+  .month-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+  .month-table th{padding:8px 10px;text-align:left;font-size:.62rem;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);}
+  .month-table td{padding:9px 10px;border-bottom:1px solid rgba(30,45,64,.4);}
+  .month-table tr:last-child td{border-bottom:none;}
+  .month-table tr:hover td{background:rgba(255,255,255,.02);}
+  .td-mes{color:var(--text);font-weight:500;}.td-num{color:var(--accent);}.td-gas-r{color:var(--accent2);}
+  .td-ahorro-pos{color:var(--green);font-weight:500;}.td-ahorro-neg{color:var(--danger);font-weight:500;}
+  .total-row td{border-top:1px solid var(--border);color:var(--text);font-weight:600;padding-top:12px;}
+  .chart-wrap{position:relative;width:100%;height:200px;margin-top:8px;}
+  .chart-svg{width:100%;height:100%;overflow:visible;}
+  .chart-empty{display:flex;align-items:center;justify-content:center;height:200px;color:var(--muted);font-size:.78rem;}
+
+  /* STATUS */
+  .status-bar{display:flex;align-items:center;gap:8px;font-size:.72rem;color:var(--muted);}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.ok{background:var(--green);box-shadow:0 0 6px var(--green);}
+  .dot.error{background:var(--danger);}.dot.loading{background:var(--accent);animation:pulse 1s infinite;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+    display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .15s ease;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;
+    width:90%;max-width:420px;animation:slideUp .2s ease;}
+  .modal h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:8px;}
+  .modal p{color:var(--muted);font-size:.78rem;margin-bottom:20px;line-height:1.6;}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+  /* ALERT */
+  .alert-banner{background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.3);border-radius:12px;
+    padding:16px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:14px;animation:slideUp .3s ease;}
+  .alert-icon{font-size:1.4rem;flex-shrink:0;margin-top:1px;}
+  .alert-body{flex:1;}
+  .alert-title{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;color:var(--accent2);margin-bottom:4px;}
+  .alert-text{font-size:.75rem;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+  .alert-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+  .saving-indicator{font-size:.72rem;color:var(--accent);display:flex;align-items:center;gap:6px;animation:fadeIn .2s ease;}
+  .edit-mode-banner{background:rgba(0,229,255,.06);border:1px solid rgba(0,229,255,.2);border-radius:8px;
+    padding:10px 14px;margin-bottom:14px;font-size:.75rem;color:var(--accent);display:flex;align-items:center;justify-content:space-between;}
+
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  @media(max-width:800px){
+    .cols{grid-template-columns:1fr;}
+    header{padding:16px;flex-wrap:wrap;gap:12px;}
+    main{padding:16px;}
+    .kpi-strip{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const CLIENT_ID_KEY  = 'ev_goog_client_id';
+const SHEET_ID_KEY   = 'ev_sheet_id';
+const TOKEN_KEY      = 'ev_goog_token';
+const TOKEN_EXP_KEY  = 'ev_goog_token_exp';
+const CONSUMO_KEY    = 'ev_consumo_ref';
+const STATION_KEY    = 'ev_ref_station';
+const ODO_SNOOZE_KEY = 'ev_odo_snooze';
+
+const SCOPES         = 'https://www.googleapis.com/auth/spreadsheets';
+const SHEET_RECARGAS = 'Recargas';
+const SHEET_ODO      = 'Odometro';
+const HEADERS_REC    = ['Fecha','Coste (€)','kWh','€/kWh','Precio Gasolina (€/L)'];
+const HEADERS_ODO    = ['Año','Mes','Odometro (km)'];
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const MITECO_URL = 'https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/';
+
+// ── GOOGLE HELPERS ─────────────────────────────────────────────────────────────
+function getToken() {
+  const exp = parseInt(localStorage.getItem(TOKEN_EXP_KEY)||'0');
+  if (Date.now()>exp){localStorage.removeItem(TOKEN_KEY);return null;}
+  return localStorage.getItem(TOKEN_KEY);
+}
+function saveToken(tok,exp=3600){
+  localStorage.setItem(TOKEN_KEY,tok);
+  localStorage.setItem(TOKEN_EXP_KEY,String(Date.now()+exp*1000-60000));
+}
+async function sheetsReq(tok,method,path,body){
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${path}`,{
+    method, headers:{'Authorization':`Bearer ${tok}`,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined,
+  });
+  if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${res.status}`);}
+  return res.json();
+}
+async function ensureSheets(tok,sid){
+  const meta = await sheetsReq(tok,'GET',sid);
+  const existing = meta.sheets.map(s=>s.properties.title);
+  const requests=[];
+  if(!existing.includes(SHEET_RECARGAS)) requests.push({addSheet:{properties:{title:SHEET_RECARGAS}}});
+  if(!existing.includes(SHEET_ODO))      requests.push({addSheet:{properties:{title:SHEET_ODO}}});
+  if(requests.length) await sheetsReq(tok,'POST',`${sid}:batchUpdate`,{requests});
+  if(!existing.includes(SHEET_RECARGAS))
+    await sheetsReq(tok,'PUT',`${sid}/values/${SHEET_RECARGAS}!A1:E1?valueInputOption=RAW`,{values:[HEADERS_REC]});
+  if(!existing.includes(SHEET_ODO))
+    await sheetsReq(tok,'PUT',`${sid}/values/${SHEET_ODO}!A1:C1?valueInputOption=RAW`,{values:[HEADERS_ODO]});
+}
+function parseNum(str){return parseFloat((str||'').toString().replace(',','.'))||0;}
+
+async function fetchRows(tok,sid){
+  const data = await sheetsReq(tok,'GET',`${sid}/values/${SHEET_RECARGAS}!A:E`);
+  return (data.values||[]).slice(1).map((r,i)=>({
+    rowIndex:i+2, fecha:r[0]||'',
+    coste:parseNum(r[1]), kwh:parseNum(r[2]),
+    precioKwh:parseNum(r[3]), precioGas:parseNum(r[4]),
+  }));
+}
+async function appendRow(tok,sid,row){
+  await sheetsReq(tok,'POST',`${sid}/values/${SHEET_RECARGAS}!A:E:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{values:[row]});
+}
+async function updateRow(tok,sid,rowIndex,row){
+  await sheetsReq(tok,'PUT',`${sid}/values/${SHEET_RECARGAS}!A${rowIndex}:E${rowIndex}?valueInputOption=RAW`,{values:[row]});
+}
+async function deleteRow(tok,sid,rowIndex){
+  const meta = await sheetsReq(tok,'GET',sid);
+  const sheet = meta.sheets.find(s=>s.properties.title===SHEET_RECARGAS);
+  if(!sheet) throw new Error('Hoja no encontrada');
+  await sheetsReq(tok,'POST',`${sid}:batchUpdate`,{
+    requests:[{deleteDimension:{range:{sheetId:sheet.properties.sheetId,dimension:'ROWS',startIndex:rowIndex-1,endIndex:rowIndex}}}]
+  });
+}
+async function fetchOdoRows(tok,sid){
+  const data = await sheetsReq(tok,'GET',`${sid}/values/${SHEET_ODO}!A:C`);
+  return (data.values||[]).slice(1).map((r,i)=>({
+    rowIndex:i+2, year:parseInt(r[0])||0, month:parseInt(r[1])||0, odo:parseNum(r[2]),
+  }));
+}
+async function upsertOdo(tok,sid,year,month,odo,existingRows){
+  const existing = existingRows.find(r=>r.year===year&&r.month===month);
+  if(existing){
+    await sheetsReq(tok,'PUT',`${sid}/values/${SHEET_ODO}!A${existing.rowIndex}:C${existing.rowIndex}?valueInputOption=RAW`,{values:[[year,month,odo]]});
+  } else {
+    await sheetsReq(tok,'POST',`${sid}/values/${SHEET_ODO}!A:C:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{values:[[year,month,odo]]});
+  }
+}
+
+// ── MITECO ─────────────────────────────────────────────────────────────────────
+function parseGasPrice(str){return parseFloat((str||'').replace(',',''));}
+async function fetchAllStations(){
+  const res=await fetch(MITECO_URL);const data=await res.json();return data.ListaEESSPrecio||[];
+}
+function getSavedStation(){try{return JSON.parse(localStorage.getItem(STATION_KEY)||'null');}catch{return null;}}
+
+// ── TOAST ──────────────────────────────────────────────────────────────────────
+function ToastContainer({toasts}){
+  return (
+    <div className="toast-wrap">
+      {toasts.map(t=>(
+        <div key={t.id} className={`toast ${t.type}`}>
+          <span>{t.type==='ok'?'✓':t.type==='err'?'✕':'ℹ'}</span>
+          {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+function useToast(){
+  const [toasts,setToasts]=useState([]);
+  const add=useCallback((msg,type='ok')=>{
+    const id=Date.now();
+    setToasts(t=>[...t,{id,msg,type}]);
+    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3000);
+  },[]);
+  return {toasts,toast:add};
+}
+
+// ── CONFIG PANEL ───────────────────────────────────────────────────────────────
+function ConfigPanel({onClose,isFirstTime,toast}){
+  const [clientId,setClientId]=useState(localStorage.getItem(CLIENT_ID_KEY)||'');
+  const [sheetId,setSheetId]=useState(localStorage.getItem(SHEET_ID_KEY)||'');
+  const [consumo,setConsumo]=useState(localStorage.getItem(CONSUMO_KEY)||'7');
+  const [refStation,setRefStation]=useState(getSavedStation());
+  const [searchQuery,setSearchQuery]=useState('');
+  const [searchResults,setSearchResults]=useState([]);
+  const [searching,setSearching]=useState(false);
+  const [searchErr,setSearchErr]=useState('');
+  const allStationsRef=useRef(null);
+
+  const doSearch=async()=>{
+    if(!searchQuery.trim())return;
+    setSearching(true);setSearchErr('');setSearchResults([]);
+    try{
+      if(!allStationsRef.current) allStationsRef.current=await fetchAllStations();
+      const q=searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const matches=allStationsRef.current.filter(s=>{
+        const hay=[s['Rótulo'],s['Dirección'],s['Localidad'],s['Municipio'],s['C.P.']]
+          .join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        return hay.includes(q);
+      }).slice(0,30);
+      if(!matches.length) setSearchErr('Sin resultados. Prueba con otro nombre o localidad.');
+      setSearchResults(matches);
+    }catch{setSearchErr('Error al conectar con el Ministerio.');}
+    finally{setSearching(false);}
+  };
+
+  const selectStation=s=>{
+    setRefStation({ideess:s['IDEESS'],rotulo:s['Rótulo'],direccion:s['Dirección'],localidad:s['Localidad']||s['Municipio'],provincia:s['Provincia']});
+    setSearchResults([]);setSearchQuery('');
+  };
+
+  const saveConfig=()=>{
+    if(!clientId.trim()||!sheetId.trim())return;
+    localStorage.setItem(CLIENT_ID_KEY,clientId.trim());
+    localStorage.setItem(SHEET_ID_KEY,sheetId.trim());
+    localStorage.setItem(CONSUMO_KEY,consumo||'7');
+    if(refStation) localStorage.setItem(STATION_KEY,JSON.stringify(refStation));
+    else localStorage.removeItem(STATION_KEY);
+    toast('Configuración guardada','ok');
+    onClose();
+  };
+
+  return(
+    <div className="config-overlay">
+      <div className="config-box">
+        {!isFirstTime&&<button className="config-close" onClick={onClose}>✕</button>}
+        <h2>⚙ Configuración</h2>
+        <p>Conecta con Google Sheets y personaliza tu referencia de gasolina.</p>
+        <div className="config-section-title">☁ Google Sheets</div>
+        <label>Google OAuth Client ID</label>
+        <input type="text" value={clientId} onChange={e=>setClientId(e.target.value)} placeholder="123456789-xxxx.apps.googleusercontent.com"/>
+        <label>ID del Google Sheet</label>
+        <input type="text" value={sheetId} onChange={e=>setSheetId(e.target.value)} placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"/>
+        <div className="hint">
+          <strong>¿Cómo obtener el Client ID?</strong><br/>
+          1. <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> → Nuevo proyecto → Habilita <em>Google Sheets API</em><br/>
+          2. Credenciales → Crear → OAuth 2.0 → Aplicación web<br/>
+          3. Añade <code>{window.location.origin}</code> como <strong>Origen autorizado</strong><br/>
+          4. Añade <code>{window.location.origin+window.location.pathname.replace(/\/$/,'')}</code> como <strong>URI de redireccionamiento</strong><br/>
+          <strong>ID del Sheet:</strong> parte larga entre <code>/d/</code> y <code>/edit</code>
+        </div>
+        <div className="config-section">
+          <div className="config-section-title">⛽ Referencia gasolina</div>
+          <label>Consumo del coche de referencia (L/100km)</label>
+          <input type="number" step="0.1" value={consumo} onChange={e=>setConsumo(e.target.value)} placeholder="7"/>
+          {refStation?(
+            <div className="station-selected-box">
+              <div className="sel-name">⛽ {refStation.rotulo}</div>
+              <div className="sel-addr">{refStation.direccion} · {refStation.localidad}, {refStation.provincia}</div>
+              <button className="btn btn-ghost" style={{marginTop:8,fontSize:'.68rem',padding:'4px 10px'}} onClick={()=>setRefStation(null)}>✕ Quitar gasolinera</button>
+            </div>
+          ):(
+            <div style={{fontSize:'.7rem',color:'var(--muted)',marginBottom:12,lineHeight:1.6}}>
+              Sin gasolinera — se usará la <strong style={{color:'var(--text)'}}>media nacional</strong>.
+            </div>
+          )}
+          <label>{refStation?'Cambiar gasolinera':'Buscar gasolinera (opcional)'}</label>
+          <div className="station-search-row">
+            <input type="text" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}
+              onKeyDown={e=>e.key==='Enter'&&doSearch()} placeholder="Nombre, localidad, CP…" style={{marginBottom:0}}/>
+            <button className="btn btn-ghost" onClick={doSearch} disabled={searching} style={{flexShrink:0}}>{searching?'⟳':'🔍'}</button>
+          </div>
+          {searchErr&&<div style={{fontSize:'.72rem',color:'var(--danger)',marginBottom:10}}>{searchErr}</div>}
+          {searchResults.length>0&&(
+            <div className="station-results">
+              {searchResults.map(s=>{
+                const p=parseGasPrice(s['Precio Gasolina 95 E5']);
+                return(
+                  <div key={s['IDEESS']} className={`station-result-item ${refStation?.ideess===s['IDEESS']?'selected':''}`} onClick={()=>selectStation(s)}>
+                    <span className="station-price-badge">{(!isNaN(p)&&p>0)?p.toFixed(3)+' €/L':'sin precio'}</span>
+                    <div className="station-name">{s['Rótulo']}</div>
+                    <div className="station-addr">{s['Dirección']} · {s['Localidad']||s['Municipio']} ({s['Provincia']})</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div style={{marginTop:24}}>
+          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'12px'}}
+            onClick={saveConfig} disabled={!clientId.trim()||!sheetId.trim()}>
+            Guardar configuración →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── RESUMEN TAB ────────────────────────────────────────────────────────────────
+function ResumenTab({rows,odoRows,resumenYear,setResumenYear,consumoRef}){
+  const cRef=parseFloat(consumoRef||'7');
+  const today=new Date();
+  const getOdoForMonth=(year,month)=>odoRows.find(r=>r.year===year&&r.month===month)?.odo??null;
+
+  const monthStats=MESES.map((mes,mi)=>{
+    const monthRows=rows.filter(r=>{
+      if(!r.fecha)return false;
+      const d=new Date(r.fecha);return d.getMonth()===mi&&d.getFullYear()===resumenYear;
+    });
+    const totalCoste=monthRows.reduce((s,r)=>s+r.coste,0);
+    const totalKwh=monthRows.reduce((s,r)=>s+r.kwh,0);
+    const prevY=mi===0?resumenYear-1:resumenYear;
+    const prevM=mi===0?12:mi;
+    const odoNow=getOdoForMonth(resumenYear,mi+1);
+    const odoPrev=getOdoForMonth(prevY,prevM);
+    const km=odoNow!==null?(odoPrev!==null?odoNow-odoPrev:odoNow):null;
+    const costKmElec=km>0?totalCoste/km:null;
+    const eficiencia=km>0&&totalKwh>0?km/totalKwh:null;
+    // Comparador día a día: por cada recarga calcular coste gasolina equivalente ese día
+    // coste_gas_dia = (kWh / eficiencia_media) * precioGas_dia
+    // Usamos: km proporcionales a kWh de cada recarga
+    let costGasTotalDiaDia=0;
+    if(km>0&&totalKwh>0&&monthRows.length>0){
+      monthRows.forEach(r=>{
+        const kmEstimados=(r.kwh/totalKwh)*km;
+        const costeGasDia=(kmEstimados*cRef/100)*r.precioGas;
+        costGasTotalDiaDia+=costeGasDia;
+      });
+    }
+    const avgGas=monthRows.length?monthRows.reduce((s,r)=>s+r.precioGas,0)/monthRows.length:0;
+    const costKmGas=avgGas>0?cRef*avgGas/100:null;
+    const ahorroEur=(costKmElec&&costGasTotalDiaDia>0&&totalCoste>0)?costGasTotalDiaDia-totalCoste:null;
+    const ahorroPct=(ahorroEur!==null&&costGasTotalDiaDia>0)?ahorroEur/costGasTotalDiaDia*100:null;
+    return{mes,mi,totalCoste,totalKwh,km,costKmElec,eficiencia,avgGas,costKmGas,ahorroEur,ahorroPct,recargas:monthRows.length,costGasTotalDiaDia};
+  }).filter(m=>m.recargas>0||m.km!==null);
+
+  const anualCoste=monthStats.reduce((s,m)=>s+m.totalCoste,0);
+  const anualKwh=monthStats.reduce((s,m)=>s+m.totalKwh,0);
+  const anualKm=monthStats.filter(m=>m.km!==null).reduce((s,m)=>s+m.km,0);
+  const anualAhorro=monthStats.filter(m=>m.ahorroEur!==null).reduce((s,m)=>s+m.ahorroEur,0);
+  const chartData=monthStats.filter(m=>m.costKmElec!==null&&m.costKmGas!==null);
+  const years=[];for(let y=today.getFullYear();y>=today.getFullYear()-3;y--)years.push(y);
+
+  const renderChart=()=>{
+    if(chartData.length<2)return<div className="chart-empty">Necesitas al menos 2 meses con datos para ver la gráfica</div>;
+    const W=600,H=180,PAD={t:10,r:20,b:30,l:50};
+    const allVals=chartData.flatMap(m=>[m.costKmElec,m.costKmGas]);
+    const minV=Math.min(...allVals)*.9,maxV=Math.max(...allVals)*1.1;
+    const xStep=(W-PAD.l-PAD.r)/(chartData.length-1);
+    const yScale=v=>PAD.t+(H-PAD.t-PAD.b)*(1-(v-minV)/(maxV-minV));
+    const xPos=i=>PAD.l+i*xStep;
+    const pathE=chartData.map((m,i)=>`${i===0?'M':'L'}${xPos(i).toFixed(1)},${yScale(m.costKmElec).toFixed(1)}`).join(' ');
+    const pathG=chartData.map((m,i)=>`${i===0?'M':'L'}${xPos(i).toFixed(1)},${yScale(m.costKmGas).toFixed(1)}`).join(' ');
+    return(
+      <div className="chart-wrap">
+        <svg className="chart-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          {[0,.25,.5,.75,1].map(t=>{
+            const y=PAD.t+(H-PAD.t-PAD.b)*t;const val=maxV-t*(maxV-minV);
+            return<g key={t}><line x1={PAD.l} y1={y} x2={W-PAD.r} y2={y} stroke="rgba(30,45,64,.8)" strokeWidth="1"/>
+              <text x={PAD.l-6} y={y+4} textAnchor="end" fontSize="9" fill="#5a7a8a">{val.toFixed(3)}</text></g>;
+          })}
+          <path d={pathG} fill="none" stroke="#ff6b35" strokeWidth="2" strokeLinejoin="round"/>
+          <path d={pathE} fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinejoin="round"/>
+          {chartData.map((m,i)=>(
+            <g key={i}>
+              <circle cx={xPos(i)} cy={yScale(m.costKmElec)} r="3" fill="#00e5ff"/>
+              <circle cx={xPos(i)} cy={yScale(m.costKmGas)} r="3" fill="#ff6b35"/>
+              <text x={xPos(i)} y={H-4} textAnchor="middle" fontSize="9" fill="#5a7a8a">{m.mes.slice(0,3)}</text>
+            </g>
+          ))}
+        </svg>
+        <div style={{display:'flex',gap:16,justifyContent:'center',marginTop:8,fontSize:'.7rem',color:'var(--muted)'}}>
+          <span><span style={{color:'var(--accent)'}}>●</span> Eléctrico (€/km)</span>
+          <span><span style={{color:'var(--accent2)'}}>●</span> Gasolina ref. (€/km)</span>
+        </div>
+      </div>
+    );
+  };
+
+  return(
+    <div>
+      <div className="year-select">
+        <span style={{fontSize:'.75rem',color:'var(--muted)',textTransform:'uppercase',letterSpacing:'.06em'}}>Año</span>
+        <select value={resumenYear} onChange={e=>setResumenYear(parseInt(e.target.value))}>
+          {years.map(y=><option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      {monthStats.length===0?(
+        <div className="empty-state"><span className="icon">📊</span>Sin datos para {resumenYear}<br/><span style={{opacity:.5}}>Añade recargas y registra el odómetro</span></div>
+      ):(
+        <>
+          <div className="kpi-strip" style={{marginBottom:20}}>
+            <div className="kpi cyan"><div className="kpi-label">Gasto anual</div><div className="kpi-value">{anualCoste.toFixed(0)}€</div><div className="kpi-sub">{anualKwh.toFixed(0)} kWh totales</div></div>
+            <div className="kpi orange"><div className="kpi-label">Km totales</div><div className="kpi-value">{anualKm.toLocaleString()}</div><div className="kpi-sub">km en {resumenYear}</div></div>
+            <div className="kpi green"><div className="kpi-label">Ahorro anual</div><div className="kpi-value">{anualAhorro>=0?'+':''}{anualAhorro.toFixed(0)}€</div><div className="kpi-sub">vs gasolina (día a día)</div></div>
+          </div>
+          <div className="resumen-grid">
+            <div className="resumen-card">
+              <div className="resumen-card-title">Desglose mensual</div>
+              <table className="month-table">
+                <thead><tr><th>Mes</th><th>Km</th><th>€ elec.</th><th>€/km</th><th>km/kWh</th><th>Ahorro</th></tr></thead>
+                <tbody>
+                  {monthStats.map((m,i)=>(
+                    <tr key={i}>
+                      <td className="td-mes">{m.mes.slice(0,3)}</td>
+                      <td className="td-num">{m.km!==null?m.km.toLocaleString():'—'}</td>
+                      <td className="td-gas-r">{m.totalCoste>0?m.totalCoste.toFixed(2)+'€':'—'}</td>
+                      <td className="td-num">{m.costKmElec?m.costKmElec.toFixed(4):'—'}</td>
+                      <td style={{color:'var(--muted)'}}>{m.eficiencia?m.eficiencia.toFixed(2):'—'}</td>
+                      <td className={m.ahorroEur>0?'td-ahorro-pos':m.ahorroEur<0?'td-ahorro-neg':''}>
+                        {m.ahorroEur!==null?(m.ahorroEur>=0?'+':'')+m.ahorroEur.toFixed(2)+'€':'—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {monthStats.length>1&&(
+                  <tfoot><tr className="total-row">
+                    <td>Total</td>
+                    <td style={{color:'var(--accent)'}}>{anualKm.toLocaleString()}</td>
+                    <td style={{color:'var(--accent2)'}}>{anualCoste.toFixed(2)}€</td>
+                    <td style={{color:'var(--accent)'}}>{anualKm>0?(anualCoste/anualKm).toFixed(4):'—'}</td>
+                    <td style={{color:'var(--muted)'}}>{anualKm>0&&anualKwh>0?(anualKm/anualKwh).toFixed(2):'—'}</td>
+                    <td className={anualAhorro>=0?'td-ahorro-pos':'td-ahorro-neg'}>{(anualAhorro>=0?'+':'')+anualAhorro.toFixed(2)}€</td>
+                  </tr></tfoot>
+                )}
+              </table>
+            </div>
+            {chartData.length>=2&&(
+              <div className="resumen-card">
+                <div className="resumen-card-title">Evolución €/km mensual</div>
+                {renderChart()}
+              </div>
+            )}
+          </div>
+          {monthStats.some(m=>m.eficiencia)&&(
+            <div className="resumen-card" style={{marginTop:0}}>
+              <div className="resumen-card-title">Eficiencia del coche (km/kWh)</div>
+              <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                {monthStats.filter(m=>m.eficiencia).map((m,i)=>(
+                  <div key={i} style={{background:'var(--surface2)',borderRadius:8,padding:'12px 16px',textAlign:'center',minWidth:80}}>
+                    <div style={{fontSize:'.65rem',color:'var(--muted)',marginBottom:6,textTransform:'uppercase'}}>{m.mes.slice(0,3)}</div>
+                    <div style={{fontFamily:'Syne,sans-serif',fontSize:'1.3rem',fontWeight:700,color:'var(--green)'}}>{m.eficiencia.toFixed(2)}</div>
+                    <div style={{fontSize:'.65rem',color:'var(--muted)'}}>km/kWh</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── MAIN APP ───────────────────────────────────────────────────────────────────
+function App(){
+  const today=new Date();
+  const {toasts,toast}=useToast();
+  const [viewMonth,setViewMonth]=useState(today.getMonth());
+  const [viewYear,setViewYear]=useState(today.getFullYear());
+  const [showConfig,setShowConfig]=useState(!localStorage.getItem(CLIENT_ID_KEY));
+  const [activeTab,setActiveTab]=useState('recargas');
+  const [resumenYear,setResumenYear]=useState(today.getFullYear());
+  const [consumoRef,setConsumoRef]=useState(localStorage.getItem(CONSUMO_KEY)||'7');
+
+  const [token,setToken]=useState(getToken());
+  const [authStatus,setAuthStatus]=useState(getToken()?'ok':'idle');
+  const [rows,setRows]=useState([]);
+  const [odoRows,setOdoRows]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [saving,setSaving]=useState(false);
+
+  // Form state
+  const emptyForm={fecha:today.toISOString().slice(0,10),coste:'',kwh:'',precioGas:''};
+  const [form,setForm]=useState(emptyForm);
+  const [editingRow,setEditingRow]=useState(null); // row being edited
+  const [formErrors,setFormErrors]=useState({});
+  const [gasFetchStatus,setGasFetchStatus]=useState('idle');
+  const [gasSource,setGasSource]=useState('');
+  const [deleteModal,setDeleteModal]=useState(null);
+
+  // Odómetro form
+  const [odoValue,setOdoValue]=useState('');
+  const [odoMonth,setOdoMonth]=useState(today.getMonth()+1);
+  const [odoYear,setOdoYear]=useState(today.getFullYear());
+  const [odoSaving,setOdoSaving]=useState(false);
+  const [showOdoAlert,setShowOdoAlert]=useState(false);
+
+  // ── GAS PRICE FETCH ──
+  const fetchPrecioGasolina=useCallback(async()=>{
+    setGasFetchStatus('loading');
+    try{
+      const stations=await fetchAllStations();
+      const saved=getSavedStation();
+      if(saved){
+        const found=stations.find(s=>s['IDEESS']===saved.ideess);
+        if(found){
+          const p=parseGasPrice(found['Precio Gasolina 95 E5']);
+          if(!isNaN(p)&&p>0){setForm(f=>({...f,precioGas:String(p)}));setGasSource('station');setGasFetchStatus('ok');return;}
+        }
+      }
+      const prices=stations.map(s=>parseGasPrice(s['Precio Gasolina 95 E5'])).filter(p=>!isNaN(p)&&p>0);
+      if(!prices.length)throw new Error('Sin datos');
+      const avg=Math.round(prices.reduce((a,b)=>a+b,0)/prices.length*1000)/1000;
+      setForm(f=>({...f,precioGas:String(avg)}));setGasSource('nacional');setGasFetchStatus('ok');
+    }catch{setGasFetchStatus('error');}
+  },[]);
+
+  // ── OAUTH ──
+  const getRedirectUri=()=>window.location.origin+window.location.pathname.replace(/\/$/,'');
+  const doAuth=useCallback(()=>{
+    const cid=localStorage.getItem(CLIENT_ID_KEY);
+    if(!cid){toast('Configura el Client ID primero','err');return;}
+    const params=new URLSearchParams({
+      client_id:cid,redirect_uri:getRedirectUri(),
+      response_type:'token',scope:SCOPES,prompt:'consent',
+    });
+    window.location.href=`https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  },[]);
+
+  useEffect(()=>{
+    const hash=new URLSearchParams(window.location.hash.slice(1));
+    const tok=hash.get('access_token');
+    if(tok){
+      saveToken(tok,parseInt(hash.get('expires_in')||'3600'));
+      setToken(tok);setAuthStatus('ok');
+      window.history.replaceState(null,'',window.location.pathname);
+      toast('Sesión iniciada correctamente','ok');
+    }
+  },[]);
+
+  // ── LOAD ALL ──
+  const loadAll=useCallback(async(tok,sid)=>{
+    if(!tok||!sid)return;
+    setLoading(true);
+    try{
+      await ensureSheets(tok,sid);
+      const [recRows,odoData]=await Promise.all([fetchRows(tok,sid),fetchOdoRows(tok,sid)]);
+      setRows(recRows);setOdoRows(odoData);
+    }catch(e){
+      if(e.message.includes('401')||e.message.includes('invalid_token')){
+        setAuthStatus('expired');setToken(null);localStorage.removeItem(TOKEN_KEY);
+        toast('Sesión expirada — vuelve a iniciar sesión','err');
+      }else{toast(e.message,'err');}
+    }finally{setLoading(false);}
+  },[]);
+
+  useEffect(()=>{
+    const sid=localStorage.getItem(SHEET_ID_KEY);
+    if(token&&sid)loadAll(token,sid);
+  },[token,loadAll]);
+
+  useEffect(()=>{fetchPrecioGasolina();},[fetchPrecioGasolina]);
+
+  // ── ODO ALERT ──
+  useEffect(()=>{
+    const day=today.getDate();
+    const daysInMonth=new Date(today.getFullYear(),today.getMonth()+1,0).getDate();
+    if(day<daysInMonth-2)return;
+    const snooze=localStorage.getItem(ODO_SNOOZE_KEY);
+    if(snooze===today.toISOString().slice(0,10))return;
+    const hasOdo=odoRows.some(r=>r.year===today.getFullYear()&&r.month===today.getMonth()+1);
+    if(!hasOdo)setShowOdoAlert(true);
+  },[odoRows]);
+
+  // ── VALIDATE FORM ──
+  const validateForm=()=>{
+    const errors={};
+    if(!form.fecha) errors.fecha='Fecha requerida';
+    if(!form.coste||parseFloat(form.coste)<=0) errors.coste='Introduce un coste válido';
+    if(!form.kwh||parseFloat(form.kwh)<=0) errors.kwh='Introduce kWh válidos';
+    if(!form.precioGas||parseFloat(form.precioGas)<=0) errors.precioGas='Introduce el precio de gasolina';
+    setFormErrors(errors);
+    return Object.keys(errors).length===0;
+  };
+
+  // ── SUBMIT RECARGA ──
+  const handleSubmit=async()=>{
+    if(!validateForm())return;
+    if(!token){toast('Inicia sesión con Google primero','err');return;}
+    const sid=localStorage.getItem(SHEET_ID_KEY);
+    const coste=parseFloat(form.coste),kwh=parseFloat(form.kwh),pgas=parseFloat(form.precioGas);
+    const row=[form.fecha,coste,kwh,kwh>0?+(coste/kwh).toFixed(4):0,pgas];
+    setSaving(true);
+    try{
+      if(editingRow){
+        await updateRow(token,sid,editingRow.rowIndex,row);
+        toast('Recarga actualizada','ok');
+        setEditingRow(null);
+      }else{
+        await appendRow(token,sid,row);
+        toast('Recarga guardada','ok');
+      }
+      await loadAll(token,sid);
+      setForm(emptyForm);setFormErrors({});
+      fetchPrecioGasolina();
+    }catch(e){toast(e.message,'err');}
+    finally{setSaving(false);}
+  };
+
+  const startEdit=row=>{
+    setEditingRow(row);
+    setForm({fecha:row.fecha,coste:String(row.coste),kwh:String(row.kwh),precioGas:String(row.precioGas)});
+    setFormErrors({});setGasFetchStatus('idle');
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
+
+  const cancelEdit=()=>{
+    setEditingRow(null);setForm(emptyForm);setFormErrors({});
+    fetchPrecioGasolina();
+  };
+
+  // ── SUBMIT ODO ──
+  const handleOdoSubmit=async()=>{
+    if(!odoValue){toast('Introduce el odómetro','err');return;}
+    if(!token){toast('Inicia sesión primero','err');return;}
+    const sid=localStorage.getItem(SHEET_ID_KEY);
+    const odoNum=parseFloat(odoValue);
+    // Validación: no puede ser menor que el mes anterior
+    const prevY=odoMonth===1?odoYear-1:odoYear;
+    const prevM=odoMonth===1?12:odoMonth-1;
+    const odoPrevVal=odoRows.find(r=>r.year===prevY&&r.month===prevM)?.odo??null;
+    if(odoPrevVal!==null&&odoNum<odoPrevVal){
+      toast(`El odómetro (${odoNum.toLocaleString()} km) no puede ser menor que el de ${MESES[prevM-1]} (${odoPrevVal.toLocaleString()} km)`,'err');
+      return;
+    }
+    setOdoSaving(true);
+    try{
+      await upsertOdo(token,sid,odoYear,odoMonth,odoNum,odoRows);
+      await loadAll(token,sid);
+      toast(`Odómetro de ${MESES[odoMonth-1]} guardado`,'ok');
+      setShowOdoAlert(false);setOdoValue('');
+    }catch(e){toast(e.message,'err');}
+    finally{setOdoSaving(false);}
+  };
+
+  // ── DELETE ──
+  const confirmDelete=async()=>{
+    if(!deleteModal)return;
+    setSaving(true);
+    try{
+      await deleteRow(token,localStorage.getItem(SHEET_ID_KEY),deleteModal.rowIndex);
+      await loadAll(token,localStorage.getItem(SHEET_ID_KEY));
+      toast('Recarga eliminada','ok');
+    }catch(e){toast(e.message,'err');}
+    finally{setSaving(false);setDeleteModal(null);}
+  };
+
+  // ── ODO HELPERS ──
+  const getOdoForMonth=(year,month)=>odoRows.find(r=>r.year===year&&r.month===month)?.odo??null;
+  const prevMonthYear=viewMonth===0?viewYear-1:viewYear;
+  const prevMonthNum=viewMonth===0?12:viewMonth;
+  const odoCurrentRaw=getOdoForMonth(viewYear,viewMonth+1);
+  const odoPrevRaw=getOdoForMonth(prevMonthYear,prevMonthNum);
+  const kmMesCalculado=odoCurrentRaw!==null?(odoPrevRaw!==null?odoCurrentRaw-odoPrevRaw:odoCurrentRaw):null;
+  const esPrimerMes=odoCurrentRaw!==null&&odoPrevRaw===null;
+
+  // ── FILTER + KPIs ──
+  const filteredRows=rows
+    .filter(r=>{if(!r.fecha)return false;const d=new Date(r.fecha);return d.getMonth()===viewMonth&&d.getFullYear()===viewYear;})
+    .sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+
+  const totalCoste=filteredRows.reduce((s,r)=>s+r.coste,0);
+  const totalKwh=filteredRows.reduce((s,r)=>s+r.kwh,0);
+  // €/kWh ponderado por kWh de cada recarga
+  const avgPrecioKwhPond=totalKwh>0?totalCoste/totalKwh:0;
+  const kmsMes=kmMesCalculado!==null?kmMesCalculado:0;
+  const costKmElec=kmsMes>0?totalCoste/kmsMes:0;
+  const cRef=parseFloat(localStorage.getItem(CONSUMO_KEY)||'7');
+
+  // Comparador día a día
+  let costGasDiaDia=0;
+  if(kmsMes>0&&totalKwh>0){
+    filteredRows.forEach(r=>{
+      const kmEstimados=(r.kwh/totalKwh)*kmsMes;
+      costGasDiaDia+=(kmEstimados*cRef/100)*r.precioGas;
+    });
+  }
+  const costKmGasDiaDia=kmsMes>0?costGasDiaDia/kmsMes:0;
+  const ahorroPct=costGasDiaDia>0&&totalCoste>0?((costGasDiaDia-totalCoste)/costGasDiaDia*100).toFixed(1):null;
+  const ahorroEur=costGasDiaDia>0?costGasDiaDia-totalCoste:null;
+
+  const prevMonthNav=()=>{if(viewMonth===0){setViewMonth(11);setViewYear(y=>y-1);}else setViewMonth(m=>m-1);};
+  const nextMonthNav=()=>{if(viewMonth===11){setViewMonth(0);setViewYear(y=>y+1);}else setViewMonth(m=>m+1);};
+  const stationRef=getSavedStation();
+
+  const handleConfigClose=()=>{
+    setConsumoRef(localStorage.getItem(CONSUMO_KEY)||'7');
+    setShowConfig(false);fetchPrecioGasolina();
+  };
+
+  useEffect(()=>{setOdoMonth(viewMonth+1);setOdoYear(viewYear);},[viewMonth,viewYear]);
+  useEffect(()=>{
+    const existing=getOdoForMonth(odoYear,odoMonth);
+    setOdoValue(existing!==null?String(existing):'');
+  },[odoMonth,odoYear,odoRows]);
+
+  const odoMonthOptions=MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>);
+  const odoYearOptions=[-1,0,1].map(d=>today.getFullYear()+d).map(y=><option key={y} value={y}>{y}</option>);
+
+  return(
+    <>
+      <ToastContainer toasts={toasts}/>
+      {showConfig&&<ConfigPanel onClose={handleConfigClose} isFirstTime={!localStorage.getItem(CLIENT_ID_KEY)} toast={toast}/>}
+
+      {deleteModal&&(
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>¿Eliminar recarga?</h3>
+            <p>Se eliminará la recarga del <strong>{deleteModal.fecha}</strong> de {deleteModal.coste.toFixed(2)}€. Esta acción no se puede deshacer.</p>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={()=>setDeleteModal(null)}>Cancelar</button>
+              <button className="btn btn-danger" style={{fontSize:'.8rem',padding:'8px 16px'}} onClick={confirmDelete}>Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <header>
+        <div className="logo">⚡ EV Tracker <span>/ recargas</span></div>
+        <div className="header-actions">
+          <div className="status-bar">
+            <div className={`dot ${authStatus==='ok'?'ok':authStatus==='expired'?'error':loading?'loading':''}`}/>
+            {authStatus==='ok'?'Conectado':authStatus==='expired'?'Sesión expirada':'Sin sesión'}
+          </div>
+          {authStatus!=='ok'&&<button className="btn btn-primary" onClick={doAuth}>🔑 Iniciar sesión</button>}
+          {authStatus==='ok'&&<button className="btn btn-ghost" onClick={()=>loadAll(token,localStorage.getItem(SHEET_ID_KEY))} disabled={loading}>{loading?'⟳':'↻'} Actualizar</button>}
+          <button className="btn btn-ghost" onClick={()=>setShowConfig(true)}>⚙ Config</button>
+        </div>
+      </header>
+
+      <main>
+        <div className="tabs">
+          <button className={`tab ${activeTab==='recargas'?'active':''}`} onClick={()=>setActiveTab('recargas')}>⚡ Recargas</button>
+          <button className={`tab ${activeTab==='resumen'?'active':''}`} onClick={()=>setActiveTab('resumen')}>📊 Resumen anual</button>
+        </div>
+
+        {activeTab==='resumen'&&<ResumenTab rows={rows} odoRows={odoRows} resumenYear={resumenYear} setResumenYear={setResumenYear} consumoRef={consumoRef}/>}
+
+        {activeTab==='recargas'&&<>
+          {/* AVISO FIN MES */}
+          {showOdoAlert&&(
+            <div className="alert-banner">
+              <div className="alert-icon">📍</div>
+              <div className="alert-body">
+                <div className="alert-title">Fin de mes próximo</div>
+                <div className="alert-text">No has registrado el odómetro de <strong>{MESES[today.getMonth()]}</strong>. Actualízalo antes del día 1 para que el cálculo sea correcto.</div>
+                <div className="alert-actions">
+                  <button className="btn btn-primary" style={{fontSize:'.75rem',padding:'6px 14px'}} onClick={()=>setShowOdoAlert(false)}>Registrar ahora ↓</button>
+                  <button className="btn btn-ghost" style={{fontSize:'.75rem',padding:'6px 14px'}}
+                    onClick={()=>{localStorage.setItem(ODO_SNOOZE_KEY,today.toISOString().slice(0,10));setShowOdoAlert(false);}}>
+                    Recordar mañana
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* MONTH NAV */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'20px'}}>
+            <div className="month-nav">
+              <button onClick={prevMonthNav}>‹</button>
+              <span style={{fontFamily:'Syne,sans-serif',fontWeight:600,minWidth:140,textAlign:'center'}}>{MESES[viewMonth]} {viewYear}</span>
+              <button onClick={nextMonthNav}>›</button>
+            </div>
+            {saving&&<div className="saving-indicator"><span className="dot loading"/>Guardando...</div>}
+          </div>
+
+          {/* KPIs */}
+          <div className="kpi-strip">
+            <div className="kpi cyan"><div className="kpi-label">Total gastado</div><div className="kpi-value">{totalCoste.toFixed(2)}€</div><div className="kpi-sub">{filteredRows.length} recargas</div></div>
+            <div className="kpi orange"><div className="kpi-label">Total kWh</div><div className="kpi-value">{totalKwh.toFixed(1)}</div><div className="kpi-sub">kWh cargados</div></div>
+            <div className="kpi muted"><div className="kpi-label">€/kWh ponderado</div><div className="kpi-value" style={{color:'var(--text)',fontSize:'1.5rem'}}>{avgPrecioKwhPond>0?avgPrecioKwhPond.toFixed(4)+'€':'—'}</div><div className="kpi-sub">media ponderada por kWh</div></div>
+            <div className="kpi green"><div className="kpi-label">Coste / km</div><div className="kpi-value">{costKmElec>0?costKmElec.toFixed(4)+'€':'—'}</div><div className="kpi-sub">{kmMesCalculado!==null?`${kmMesCalculado.toLocaleString()} km este mes`:'Sin odómetro'}</div></div>
+          </div>
+
+          <div className="cols">
+            <div>
+              {/* FORM */}
+              <div className="card">
+                <div className="card-title">{editingRow?'Editar recarga':'Nueva recarga'}</div>
+                {editingRow&&(
+                  <div className="edit-mode-banner">
+                    <span>✏ Editando recarga del {editingRow.fecha}</span>
+                    <button className="btn btn-ghost" style={{fontSize:'.68rem',padding:'3px 8px'}} onClick={cancelEdit}>Cancelar</button>
+                  </div>
+                )}
+                <div className="field">
+                  <label>Fecha</label>
+                  <input type="date" value={form.fecha} className={formErrors.fecha?'error-field':''} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))}/>
+                  {formErrors.fecha&&<div className="field-error">{formErrors.fecha}</div>}
+                </div>
+                <div className="field-row">
+                  <div className="field">
+                    <label>Coste (€)</label>
+                    <input type="number" step="0.01" placeholder="12.50" value={form.coste} className={formErrors.coste?'error-field':''}
+                      onChange={e=>setForm(f=>({...f,coste:e.target.value}))}/>
+                    {formErrors.coste&&<div className="field-error">{formErrors.coste}</div>}
+                  </div>
+                  <div className="field">
+                    <label>kWh cargados</label>
+                    <input type="number" step="0.1" placeholder="40.0" value={form.kwh} className={formErrors.kwh?'error-field':''}
+                      onChange={e=>setForm(f=>({...f,kwh:e.target.value}))}/>
+                    {formErrors.kwh&&<div className="field-error">{formErrors.kwh}</div>}
+                  </div>
+                </div>
+                <div className="field">
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}}>
+                    <label style={{margin:0}}>Precio gasolina 95 (€/L)</label>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      {gasFetchStatus==='loading'&&<span style={{fontSize:'.65rem',color:'var(--accent)',display:'flex',alignItems:'center',gap:4}}><span className="dot loading" style={{width:5,height:5}}/>consultando...</span>}
+                      {gasFetchStatus==='ok'&&gasSource==='station'&&<span style={{fontSize:'.65rem',color:'var(--green)'}}>✓ tu gasolinera</span>}
+                      {gasFetchStatus==='ok'&&gasSource==='nacional'&&<span style={{fontSize:'.65rem',color:'var(--accent)'}}>~ media nacional</span>}
+                      {gasFetchStatus==='error'&&<span style={{fontSize:'.65rem',color:'var(--danger)'}}>sin datos auto</span>}
+                      <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:'.65rem'}} onClick={fetchPrecioGasolina} disabled={gasFetchStatus==='loading'}>⟳</button>
+                    </div>
+                  </div>
+                  <input type="number" step="0.001" placeholder="1.689" value={form.precioGas} className={formErrors.precioGas?'error-field':''}
+                    onChange={e=>{setForm(f=>({...f,precioGas:e.target.value}));setGasFetchStatus('idle');setGasSource('');}}/>
+                  {formErrors.precioGas&&<div className="field-error">{formErrors.precioGas}</div>}
+                  {gasFetchStatus==='ok'&&(
+                    <div style={{fontSize:'.65rem',color:'var(--muted)',marginTop:4}}>
+                      {gasSource==='station'?<>⛽ <strong style={{color:'var(--text)'}}>{stationRef?.rotulo}</strong> · {stationRef?.localidad}</>:<>Media nacional · <a href="https://geoportalgasolineras.es" target="_blank" style={{color:'var(--accent)',textDecoration:'none'}}>MITECO</a></>}
+                      {' '}· puedes ajustarlo manualmente
+                    </div>
+                  )}
+                </div>
+                {form.coste&&form.kwh&&parseFloat(form.kwh)>0&&(
+                  <div style={{fontSize:'.72rem',color:'var(--muted)',marginBottom:'14px',background:'rgba(0,229,255,.05)',padding:'8px 12px',borderRadius:'6px'}}>
+                    → {(parseFloat(form.coste)/parseFloat(form.kwh)).toFixed(4)} €/kWh
+                  </div>
+                )}
+                <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'12px'}}
+                  onClick={handleSubmit} disabled={saving||authStatus!=='ok'}>
+                  {saving?'⟳ Guardando…':editingRow?'✓ Actualizar recarga':'+ Añadir recarga'}
+                </button>
+              </div>
+
+              {/* ODO */}
+              <div className="odo-section">
+                <div className="odo-title">🚗 Odómetro total del coche</div>
+                <div className="field-row" style={{marginBottom:10}}>
+                  <div className="field" style={{margin:0}}><label>Mes</label><select value={odoMonth} onChange={e=>setOdoMonth(parseInt(e.target.value))}>{odoMonthOptions}</select></div>
+                  <div className="field" style={{margin:0}}><label>Año</label><select value={odoYear} onChange={e=>setOdoYear(parseInt(e.target.value))}>{odoYearOptions}</select></div>
+                </div>
+                <div className="field" style={{margin:0,marginBottom:10}}>
+                  <label>Km totales que marca el coche</label>
+                  <input type="number" placeholder="12500" value={odoValue} onChange={e=>setOdoValue(e.target.value)} style={{margin:0}}/>
+                </div>
+                <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'10px'}}
+                  onClick={handleOdoSubmit} disabled={odoSaving||!odoValue||authStatus!=='ok'}>
+                  {odoSaving?'⟳ Guardando…':'💾 Guardar odómetro'}
+                </button>
+                {(odoCurrentRaw!==null||odoPrevRaw!==null)&&(
+                  <div className="odo-saved">
+                    {odoPrevRaw!==null&&<div>← {MESES[viewMonth===0?11:viewMonth-1]}: <strong>{odoPrevRaw.toLocaleString()} km</strong></div>}
+                    {odoCurrentRaw!==null&&<div>← {MESES[viewMonth]}: <strong>{odoCurrentRaw.toLocaleString()} km</strong></div>}
+                    {kmMesCalculado!==null&&<div style={{color:'var(--accent2)',marginTop:4}}>→ <strong>{kmMesCalculado.toLocaleString()} km</strong> recorridos en {MESES[viewMonth]}</div>}
+                    {esPrimerMes&&<div style={{color:'var(--accent)',marginTop:4}}>✓ Primer mes — km totales usados directamente</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* TABLE */}
+            <div className="card" style={{padding:'20px'}}>
+              <div className="card-title" style={{marginBottom:'12px'}}>Historial — {MESES[viewMonth]} {viewYear}</div>
+              <div className="table-wrap">
+                {filteredRows.length===0?(
+                  <div className="empty-state"><span className="icon">⚡</span>Sin recargas en {MESES[viewMonth]}<br/><span style={{opacity:.5}}>Añade tu primera recarga</span></div>
+                ):(
+                  <table>
+                    <thead><tr><th>Fecha</th><th>Coste</th><th>kWh</th><th>€/kWh</th><th>Gas €/L</th><th></th></tr></thead>
+                    <tbody>
+                      {filteredRows.map((r,i)=>(
+                        <tr key={i}>
+                          <td className="td-date">{r.fecha}</td>
+                          <td className="td-eur">{r.coste.toFixed(2)} €</td>
+                          <td className="td-kwh">{r.kwh.toFixed(1)}</td>
+                          <td className="td-rate">{r.precioKwh>0?r.precioKwh.toFixed(4):'—'}</td>
+                          <td className="td-gas">{r.precioGas>0?r.precioGas.toFixed(3):'—'}</td>
+                          <td style={{display:'flex',gap:6}}>
+                            <button className="btn btn-edit" onClick={()=>startEdit(r)} disabled={saving}>✏</button>
+                            <button className="btn btn-danger" onClick={()=>setDeleteModal(r)} disabled={saving}>✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* COMPARADOR */}
+          {kmsMes>0&&filteredRows.length>0&&(
+            <div className="comparador">
+              <div className="card-title">Comparador mensual — {MESES[viewMonth]}</div>
+              <div style={{fontSize:'.7rem',color:'var(--muted)',marginBottom:12}}>
+                Calculado con el precio de gasolina de cada día de recarga
+              </div>
+              <div className="comp-grid">
+                <div className="comp-item electric">
+                  <div className="comp-label">⚡ Eléctrico</div>
+                  <div className="comp-val">{costKmElec.toFixed(4)}</div>
+                  <div className="comp-unit">€ / km</div>
+                  <div style={{marginTop:8,fontSize:'.7rem',color:'var(--muted)'}}>{totalCoste.toFixed(2)}€ en {kmsMes.toLocaleString()} km</div>
+                </div>
+                <div className="comp-item gas">
+                  <div className="comp-label">⛽ {stationRef?stationRef.rotulo:'Gasolina (ref.)'}</div>
+                  <div className="comp-val">{costKmGasDiaDia>0?costKmGasDiaDia.toFixed(4):'—'}</div>
+                  <div className="comp-unit">€ / km</div>
+                  <div style={{marginTop:8,fontSize:'.7rem',color:'var(--muted)'}}>{costGasDiaDia>0?costGasDiaDia.toFixed(2)+'€ estimado':''}</div>
+                </div>
+              </div>
+              {ahorroPct!==null&&parseFloat(ahorroPct)>0&&(
+                <div className="saving-badge">
+                  🎯 Ahorras un <strong>{ahorroPct}%</strong> respecto a la gasolina — <strong>{ahorroEur.toFixed(2)}€</strong> este mes
+                </div>
+              )}
+              {ahorroPct!==null&&parseFloat(ahorroPct)<=0&&(
+                <div className="saving-badge" style={{background:'rgba(255,107,53,.08)',borderColor:'rgba(255,107,53,.2)',color:'var(--accent2)'}}>
+                  ⚠️ Este mes la gasolina habría salido más barata en un {Math.abs(parseFloat(ahorroPct))}%
+                </div>
+              )}
+            </div>
+          )}
+        </>}
+      </main>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
